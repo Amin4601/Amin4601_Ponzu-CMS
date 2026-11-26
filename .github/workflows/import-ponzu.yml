@@ -1,0 +1,48 @@
+name: Import Ponzu CMS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get importer workflow
+        uses: actions/checkout@v4
+
+      - name: Download upstream source archive
+        run: |
+          mkdir upstream
+          curl -L --fail --retry 3 https://codeload.github.com/ponzu-cms/ponzu/tar.gz/refs/heads/master \
+            | tar -xz --strip-components=1 -C upstream
+
+      - name: Preserve importer and add attribution
+        run: |
+          mkdir -p upstream/.github/workflows
+          cp .github/workflows/import-ponzu.yml upstream/.github/workflows/import-ponzu.yml
+          cat >> upstream/README.md <<'EOF'
+
+          ---
+
+          ## Amin4601 mirror
+
+          This repository contains an imported source snapshot of [Ponzu CMS](https://github.com/ponzu-cms/ponzu).
+          Ponzu CMS and its original authors remain credited. The upstream BSD 3-Clause license is preserved.
+          This is an independently maintained portfolio mirror by Amin4601.
+          EOF
+
+      - name: Create a clean Git history and push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd upstream
+          git init -b main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Import Ponzu CMS with upstream attribution"
+          git remote add destination "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git -c http.version=HTTP/1.1 push destination HEAD:main --force
